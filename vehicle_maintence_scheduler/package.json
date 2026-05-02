@@ -7,11 +7,13 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@types/express": "^5.0.6",
     "axios": "^1.6.0",
+    "express": "^5.2.1",
     "logging-middleware": "file:../logging_middleware"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
   }
 }

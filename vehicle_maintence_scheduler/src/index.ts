@@ -1,5 +1,9 @@
+import express from 'express';
 import axios from 'axios';
 import { Log } from 'logging-middleware';
+
+const app = express();
+const PORT = 3001;
 
 const BASE_URL = 'http://20.207.122.201/evaluation-service';
 
@@ -21,14 +25,6 @@ interface Vehicle {
   TaskID: string;
   Duration: number;
   Impact: number;
-}
-
-interface ScheduleResult {
-  depotID: number;
-  mechanicHours: number;
-  selectedTasks: Vehicle[];
-  totalDuration: number;
-  totalImpact: number;
 }
 
 let token: string | null = null;
@@ -78,43 +74,27 @@ function knapsack(
   };
 }
 
-async function main() {
-  await Log('backend', 'info', 'service', 'Vehicle Maintenance Scheduler starting');
+app.get('/schedule', async (req, res) => {
+  await Log('backend', 'info', 'route', 'GET /schedule request received');
 
   const authToken = await getToken();
   const headers = { Authorization: `Bearer ${authToken}` };
 
   await Log('backend', 'info', 'service', 'Fetching depots');
-  const depotsRes = await axios.get<{ depots: Depot[] }>(
-    `${BASE_URL}/depots`,
-    { headers }
-  );
+  const depotsRes = await axios.get<{ depots: Depot[] }>(`${BASE_URL}/depots`, { headers });
   const depots = depotsRes.data.depots;
   await Log('backend', 'info', 'service', `Fetched ${depots.length} depots`);
 
   await Log('backend', 'info', 'service', 'Fetching vehicles');
-  const vehiclesRes = await axios.get<{ vehicles: Vehicle[] }>(
-    `${BASE_URL}/vehicles`,
-    { headers }
-  );
+  const vehiclesRes = await axios.get<{ vehicles: Vehicle[] }>(`${BASE_URL}/vehicles`, { headers });
   const vehicles = vehiclesRes.data.vehicles;
   await Log('backend', 'info', 'service', `Fetched ${vehicles.length} vehicles`);
 
-  const results: ScheduleResult[] = [];
+  const results = [];
 
   for (const depot of depots) {
-    await Log(
-      'backend',
-      'info',
-      'service',
-      `Solving knapsack for depot ${depot.ID} with budget ${depot.MechanicHours} hours`
-    );
-
-    const { selected, totalImpact, totalDuration } = knapsack(
-      vehicles,
-      depot.MechanicHours
-    );
-
+    await Log('backend', 'info', 'service', `Solving schedule for depot ${depot.ID}`);
+    const { selected, totalImpact, totalDuration } = knapsack(vehicles, depot.MechanicHours);
     results.push({
       depotID: depot.ID,
       mechanicHours: depot.MechanicHours,
@@ -122,33 +102,14 @@ async function main() {
       totalDuration,
       totalImpact,
     });
-
-    await Log(
-      'backend',
-      'info',
-      'service',
-      `Depot ${depot.ID}: ${selected.length} tasks selected, impact=${totalImpact}, duration=${totalDuration}`
-    );
+    await Log('backend', 'info', 'service', `Depot ${depot.ID}: impact=${totalImpact}, duration=${totalDuration}`);
   }
 
-  console.log('\n=== Vehicle Maintenance Schedule Results ===\n');
-  for (const result of results) {
-    console.log(
-      `Depot ${result.depotID} | Budget: ${result.mechanicHours}h | Selected: ${result.selectedTasks.length} tasks | Duration: ${result.totalDuration}h | Impact: ${result.totalImpact}`
-    );
-    for (const task of result.selectedTasks) {
-      console.log(
-        `  TaskID: ${task.TaskID}  Duration: ${task.Duration}h  Impact: ${task.Impact}`
-      );
-    }
-    console.log();
-  }
+  await Log('backend', 'info', 'route', 'GET /schedule response sent');
+  res.json({ schedules: results });
+});
 
-  await Log('backend', 'info', 'service', 'Vehicle Maintenance Scheduler completed');
-}
-
-main().catch(async (err) => {
-  await Log('backend', 'fatal', 'service', `Scheduler failed: ${String(err.message)}`);
-  console.error(err);
-  process.exit(1);
+app.listen(PORT, async () => {
+  await Log('backend', 'info', 'service', `Vehicle Maintenance Scheduler running on port ${PORT}`);
+  console.log(`Vehicle Maintenance Scheduler running on http://localhost:${PORT}`);
 });

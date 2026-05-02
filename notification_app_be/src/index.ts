@@ -1,5 +1,9 @@
+import express from 'express';
 import axios from 'axios';
 import { Log } from 'logging-middleware';
+
+const app = express();
+const PORT = 3002;
 
 const BASE_URL = 'http://20.207.122.201/evaluation-service';
 
@@ -52,8 +56,7 @@ function getTopNotifications(
 
   const scored: ScoredNotification[] = notifications.map((n) => {
     const normalizedWeight = (TYPE_WEIGHT[n.Type] - 1) / 2;
-    const normalizedRecency =
-      (new Date(n.Timestamp).getTime() - minTs) / tsRange;
+    const normalizedRecency = (new Date(n.Timestamp).getTime() - minTs) / tsRange;
     const priorityScore = 0.6 * normalizedWeight + 0.4 * normalizedRecency;
     return { ...n, priorityScore };
   });
@@ -62,60 +65,28 @@ function getTopNotifications(
   return scored.slice(0, topN);
 }
 
-async function main() {
-  const topN = parseInt(process.argv[2] ?? '10', 10);
-
-  await Log(
-    'backend',
-    'info',
-    'service',
-    `Priority Inbox starting — fetching top ${topN} notifications`
-  );
+app.get('/notifications', async (req, res) => {
+  const n = parseInt((req.query.n as string) ?? '10', 10);
+  await Log('backend', 'info', 'route', `GET /notifications?n=${n} request received`);
 
   const authToken = await getToken();
   const headers = { Authorization: `Bearer ${authToken}` };
 
   await Log('backend', 'info', 'api', 'Fetching notifications from evaluation service');
-  const res = await axios.get<{ notifications: Notification[] }>(
+  const result = await axios.get<{ notifications: Notification[] }>(
     `${BASE_URL}/notifications`,
     { headers }
   );
-  const notifications = res.data.notifications;
-  await Log(
-    'backend',
-    'info',
-    'api',
-    `Received ${notifications.length} notifications`
-  );
+  const notifications = result.data.notifications;
+  await Log('backend', 'info', 'api', `Received ${notifications.length} notifications`);
 
-  const top = getTopNotifications(notifications, topN);
+  const top = getTopNotifications(notifications, n);
+  await Log('backend', 'info', 'service', `Returning top ${top.length} priority notifications`);
 
-  await Log(
-    'backend',
-    'info',
-    'service',
-    `Returning top ${top.length} priority notifications`
-  );
+  res.json({ count: top.length, notifications: top });
+});
 
-  console.log(`\n=== Top ${topN} Priority Notifications ===\n`);
-  top.forEach((n, i) => {
-    console.log(`${i + 1}. [${n.Type}] ${n.Message}`);
-    console.log(`   ID        : ${n.ID}`);
-    console.log(`   Timestamp : ${n.Timestamp}`);
-    console.log(`   Score     : ${n.priorityScore.toFixed(4)}`);
-    console.log();
-  });
-
-  await Log('backend', 'info', 'service', 'Priority Inbox completed successfully');
-}
-
-main().catch(async (err) => {
-  await Log(
-    'backend',
-    'fatal',
-    'service',
-    `Priority Inbox failed: ${String(err.message)}`
-  );
-  console.error(err);
-  process.exit(1);
+app.listen(PORT, async () => {
+  await Log('backend', 'info', 'service', `Notification App running on port ${PORT}`);
+  console.log(`Notification App running on http://localhost:${PORT}`);
 });
