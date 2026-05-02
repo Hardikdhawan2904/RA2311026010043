@@ -88,5 +88,4 @@ app.get('/notifications', async (req, res) => {
 
 app.listen(PORT, async () => {
   await Log('backend', 'info', 'service', `Notification App running on port ${PORT}`);
-  console.log(`Notification App running on http://localhost:${PORT}`);
 });

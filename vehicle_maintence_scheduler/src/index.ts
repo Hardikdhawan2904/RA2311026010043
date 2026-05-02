@@ -111,5 +111,4 @@ app.get('/schedule', async (req, res) => {
 
 app.listen(PORT, async () => {
   await Log('backend', 'info', 'service', `Vehicle Maintenance Scheduler running on port ${PORT}`);
-  console.log(`Vehicle Maintenance Scheduler running on http://localhost:${PORT}`);
 });
