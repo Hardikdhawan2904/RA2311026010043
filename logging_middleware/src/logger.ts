@@ -47,6 +47,5 @@ export async function Log(
       { headers: { Authorization: `Bearer ${token}` } }
     );
   } catch {
-    // logging must not disrupt the application
   }
 }
